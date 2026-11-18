@@ -37,51 +37,94 @@ namespace BarrioInteligenteWeb.Controllers
             _reputacionService = reputacionService;
         }
 
+        private static readonly string[] _correosPropietarios =
+        {
+            "stevenrodriguez77777@gmail.com",
+            "christopherxd2005@gmail.com"
+        };
+
+        private static readonly HashSet<string> _estadosValidos = new(StringComparer.Ordinal)
+        {
+            "Pendiente",
+            "En Proceso",
+            "Resuelto"
+        };
+
         private int UsuarioActualId =>
             int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 
-        public IActionResult Index()
+        private static bool EsCorreoPropietario(string? correo) =>
+            !string.IsNullOrWhiteSpace(correo) &&
+            _correosPropietarios.Any(c => string.Equals(c, correo, StringComparison.OrdinalIgnoreCase));
+
+        private static bool EsUsuarioAdmin(Usuario? usuario) =>
+            usuario != null &&
+            (usuario.EsAdmin || usuario.Rol == RolesUsuario.Administrador || EsCorreoPropietario(usuario.Correo));
+
+        private static bool EsUsuarioStaff(Usuario? usuario) =>
+            usuario != null &&
+            (EsUsuarioAdmin(usuario) ||
+             (!string.IsNullOrWhiteSpace(usuario.Rol) && usuario.Rol != RolesUsuario.Ciudadano));
+
+        private async Task<Usuario?> ObtenerUsuarioActualAsync()
+        {
+            var userIdStr = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (!int.TryParse(userIdStr, out int userId)) return null;
+            return await _context.Usuarios.AsNoTracking().FirstOrDefaultAsync(u => u.Id == userId);
+        }
+
+        private async Task<bool> EsStaffAsync()
+        {
+            var usuario = await ObtenerUsuarioActualAsync();
+            return EsUsuarioStaff(usuario);
+        }
+
+        private async Task CargarUsuarioViewBagAsync()
+        {
+            var usuario = await ObtenerUsuarioActualAsync();
+            ViewBag.UsuarioId = usuario?.Id ?? UsuarioActualId;
+            ViewBag.FotoPerfil = usuario?.FotoPerfil;
+            ViewBag.EsAdmin = EsUsuarioAdmin(usuario);
+            ViewBag.EsStaff = EsUsuarioStaff(usuario);
+        }
+
+        public async Task<IActionResult> Index()
         {
             try
             {
-                var lista = _context.Reportes
+                await CargarUsuarioViewBagAsync();
+                var lista = await _context.Reportes
                     .AsNoTracking()
                     .OrderByDescending(r => r.Fecha)
-                    .ToList();
-                ViewBag.UsuarioId = UsuarioActualId;
-                ViewBag.FotoPerfil = _context.Usuarios
-                    .AsNoTracking()
-                    .Where(u => u.Id == UsuarioActualId)
-                    .Select(u => u.FotoPerfil)
-                    .FirstOrDefault();
+                    .ToListAsync();
                 return View(lista);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error al cargar el índice de reportes");
+                ViewBag.EsAdmin ??= false;
+                ViewBag.EsStaff ??= false;
                 return View(new List<Reporte>());
             }
         }
 
-        public IActionResult MisReportes()
+        public async Task<IActionResult> MisReportes()
         {
             try
             {
-                var lista = _context.Reportes
+                await CargarUsuarioViewBagAsync();
+                var lista = await _context.Reportes
                     .AsNoTracking()
                     .Where(r => r.UsuarioId == UsuarioActualId)
                     .OrderByDescending(r => r.Fecha)
-                    .ToList();
-                ViewBag.FotoPerfil = _context.Usuarios
-                    .AsNoTracking()
-                    .Where(u => u.Id == UsuarioActualId)
-                    .Select(u => u.FotoPerfil)
-                    .FirstOrDefault();
+                    .ToListAsync();
                 return View("MisReportes", lista);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error al cargar Mis Reportes para usuario {UsuarioId}", UsuarioActualId);
+                ViewBag.EsAdmin ??= false;
+                ViewBag.EsStaff ??= false;
                 return View("MisReportes", new List<Reporte>());
             }
         }
@@ -91,52 +134,129 @@ namespace BarrioInteligenteWeb.Controllers
         {
             try
             {
+                await CargarUsuarioViewBagAsync();
+
                 var reportesCategorias = await _context.Reportes
                     .AsNoTracking()
                     .GroupBy(r => r.Categoria)
                     .Select(g => new { Categoria = g.Key, Count = g.Count() })
                     .ToListAsync();
 
-                var reportesEstados = await _context.Reportes
+                var estadosRaw = await _context.Reportes
                     .AsNoTracking()
                     .GroupBy(r => r.Estado)
                     .Select(g => new { Estado = g.Key, Count = g.Count() })
                     .ToListAsync();
 
+                int countPendiente = estadosRaw
+                    .Where(x => x.Estado == "Pendiente" || string.IsNullOrWhiteSpace(x.Estado))
+                    .Sum(x => x.Count);
+                int countEnProceso = estadosRaw
+                    .Where(x => x.Estado == "En Proceso")
+                    .Sum(x => x.Count);
+                int countResuelto = estadosRaw
+                    .Where(x => x.Estado == "Resuelto")
+                    .Sum(x => x.Count);
+
+                int totalReportes = countPendiente + countEnProceso + countResuelto;
+                double tasaResolucion = totalReportes > 0
+                    ? Math.Round(countResuelto * 100.0 / totalReportes, 1)
+                    : 0.0;
+
+                var reportesEstados = new[]
+                {
+                    new { Estado = "Pendiente", Count = countPendiente },
+                    new { Estado = "En Proceso", Count = countEnProceso },
+                    new { Estado = "Resuelto", Count = countResuelto }
+                };
+
+                var usuariosResumen = await _context.Usuarios
+                    .AsNoTracking()
+                    .Select(u => new { u.PuntosReputacion })
+                    .ToListAsync();
+
+                int repExcelente = 0, repBuena = 0, repRegular = 0, repMala = 0, repCritica = 0;
+                foreach (var u in usuariosResumen)
+                {
+                    switch (ProfanityService.CalcularNivel(u.PuntosReputacion))
+                    {
+                        case NivelReputacion.Excelente: repExcelente++; break;
+                        case NivelReputacion.Buena: repBuena++; break;
+                        case NivelReputacion.Regular: repRegular++; break;
+                        case NivelReputacion.Mala: repMala++; break;
+                        case NivelReputacion.Critica: repCritica++; break;
+                    }
+                }
+
                 var topUsuarios = await _context.Usuarios
                     .AsNoTracking()
-                    .OrderBy(u => u.Reputacion)
-                    .ThenByDescending(u => u.PuntosReputacion)
+                    .OrderByDescending(u => u.PuntosReputacion)
+                    .ThenBy(u => u.Reputacion)
                     .Take(3)
                     .ToListAsync();
 
+                var reportesRecientes = await _context.Reportes
+                    .AsNoTracking()
+                    .Include(r => r.Usuario)
+                    .OrderBy(r => r.Estado == "Resuelto" ? 1 : 0)
+                    .ThenByDescending(r => r.Fecha)
+                    .Take(10)
+                    .ToListAsync();
+
+                ViewBag.TotalReportes = totalReportes;
+                ViewBag.TotalPendientes = countPendiente;
+                ViewBag.TotalEnProceso = countEnProceso;
+                ViewBag.TotalResueltos = countResuelto;
+                ViewBag.TasaResolucion = tasaResolucion;
                 ViewBag.DataCategorias = JsonSerializer.Serialize(reportesCategorias);
                 ViewBag.DataEstados = JsonSerializer.Serialize(reportesEstados);
                 ViewBag.TopCiudadanos = topUsuarios;
-                
-                ViewBag.FotoPerfil = await _context.Usuarios
-                    .AsNoTracking()
-                    .Where(u => u.Id == UsuarioActualId)
-                    .Select(u => u.FotoPerfil)
-                    .FirstOrDefaultAsync();
+                ViewBag.ReportesRecientes = reportesRecientes;
+                ViewBag.TotalUsuarios = usuariosResumen.Count;
+                ViewBag.RepExcelente = repExcelente;
+                ViewBag.RepBuena = repBuena;
+                ViewBag.RepRegular = repRegular;
+                ViewBag.RepMala = repMala;
+                ViewBag.RepCritica = repCritica;
 
                 return View();
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error al cargar el dashboard");
+                ViewBag.EsAdmin ??= false;
+                ViewBag.EsStaff ??= false;
+                ViewBag.TotalReportes ??= 0;
+                ViewBag.TotalPendientes ??= 0;
+                ViewBag.TotalEnProceso ??= 0;
+                ViewBag.TotalResueltos ??= 0;
+                ViewBag.TasaResolucion ??= 0.0;
+                ViewBag.DataCategorias ??= "[]";
+                ViewBag.DataEstados ??= "[]";
+                ViewBag.TopCiudadanos ??= new List<Usuario>();
+                ViewBag.ReportesRecientes ??= new List<Reporte>();
+                ViewBag.TotalUsuarios ??= 0;
+                ViewBag.RepExcelente ??= 0;
+                ViewBag.RepBuena ??= 0;
+                ViewBag.RepRegular ??= 0;
+                ViewBag.RepMala ??= 0;
+                ViewBag.RepCritica ??= 0;
                 return View();
             }
         }
 
-        public IActionResult Comunidad(string filtro = "recientes", double? lat = null, double? lon = null, string tipo = "Reporte")
+        public async Task<IActionResult> Comunidad(string filtro = "recientes", double? lat = null, double? lon = null, string tipo = "Reporte")
         {
             try
             {
-                var query = _context.Reportes
+                await CargarUsuarioViewBagAsync();
+
+                var query = (await _context.Reportes
                     .AsNoTracking()
                     .Include(r => r.Usuario)
+                    .Include(r => r.Validaciones)
                     .Where(r => r.TipoPost == tipo || (tipo == "Reporte" && string.IsNullOrEmpty(r.TipoPost)))
+                    .ToListAsync())
                     .AsEnumerable(); // Haversine
 
                 List<Reporte> lista;
@@ -169,20 +289,14 @@ namespace BarrioInteligenteWeb.Controllers
 
                 ViewBag.FiltroActivo = filtro;
                 ViewBag.TipoActual = tipo;
-                ViewBag.FotoPerfil = _context.Usuarios
-                    .AsNoTracking()
-                    .Where(u => u.Id == UsuarioActualId)
-                    .Select(u => u.FotoPerfil)
-                    .FirstOrDefault();
-
-                var usuarioLocal = _context.Usuarios.AsNoTracking().FirstOrDefault(u => u.Id == UsuarioActualId);
-                ViewBag.EsAdmin = usuarioLocal != null && usuarioLocal.EsAdmin;
 
                 return View(lista);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error al cargar Comunidad. Filtro={Filtro}", filtro);
+                ViewBag.EsAdmin ??= false;
+                ViewBag.EsStaff ??= false;
                 return View(new List<Reporte>());
             }
         }
@@ -201,6 +315,8 @@ namespace BarrioInteligenteWeb.Controllers
             }
 
             ViewBag.FotoPerfil = usuario?.FotoPerfil;
+            ViewBag.EsAdmin = EsUsuarioAdmin(usuario);
+            ViewBag.EsStaff = EsUsuarioStaff(usuario);
             return View();
         }
 
@@ -327,17 +443,15 @@ namespace BarrioInteligenteWeb.Controllers
             return View(reporte);
         }
 
-        public IActionResult Detalles(int id)
+        public async Task<IActionResult> Detalles(int id)
         {
             try
             {
-                var usuarioLocal = _context.Usuarios.AsNoTracking().FirstOrDefault(u => u.Id == UsuarioActualId);
-                ViewBag.EsAdmin = usuarioLocal != null && usuarioLocal.EsAdmin;
-                ViewBag.UsuarioId = UsuarioActualId;
-                var reporte = _context.Reportes
+                await CargarUsuarioViewBagAsync();
+                var reporte = await _context.Reportes
                     .AsNoTracking()
                     .Include(r => r.Usuario)
-                    .FirstOrDefault(r => r.Id == id);
+                    .FirstOrDefaultAsync(r => r.Id == id);
 
                 if (reporte == null)
                 {
@@ -345,17 +459,17 @@ namespace BarrioInteligenteWeb.Controllers
                     return NotFound();
                 }
 
-                var comentarios = _context.Comentarios
+                var comentarios = await _context.Comentarios
                     .AsNoTracking()
                     .Include(c => c.Usuario)
                     .Include(c => c.Likes) // Estado Like
                     .Where(c => c.ReporteId == id)
                     .OrderBy(c => c.Fecha)
-                    .ToList();
+                    .ToListAsync();
 
-                var yaVoto = _context.Validaciones
+                var yaVoto = await _context.Validaciones
                     .AsNoTracking()
-                    .Any(v => v.ReporteId == id && v.UsuarioId == UsuarioActualId);
+                    .AnyAsync(v => v.ReporteId == id && v.UsuarioId == UsuarioActualId);
 
                 return View(new ReporteDetalleViewModel
                 {
@@ -368,6 +482,87 @@ namespace BarrioInteligenteWeb.Controllers
             {
                 _logger.LogError(ex, "Error al cargar detalles del reporte ID={Id}", id);
                 return RedirectToAction(nameof(Index));
+            }
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> CambiarEstado(int id, string nuevoEstado)
+        {
+            try
+            {
+                if (!await EsStaffAsync())
+                {
+                    return Json(new { success = false, message = "Acceso denegado. Solo personal autorizado puede cambiar el estado." });
+                }
+
+                var estadoDestino = nuevoEstado?.Trim() ?? string.Empty;
+                if (!_estadosValidos.Contains(estadoDestino))
+                {
+                    return Json(new { success = false, message = "Estado no válido. Usa Pendiente, En Proceso o Resuelto." });
+                }
+
+                var reporte = await _context.Reportes.FirstOrDefaultAsync(r => r.Id == id);
+                if (reporte == null)
+                {
+                    return Json(new { success = false, message = "Reporte no encontrado." });
+                }
+
+                var estadoAnterior = string.IsNullOrWhiteSpace(reporte.Estado) ? "Pendiente" : reporte.Estado;
+                if (string.Equals(estadoAnterior, estadoDestino, StringComparison.Ordinal))
+                {
+                    return Json(new
+                    {
+                        success = true,
+                        estado = reporte.Estado,
+                        estadoAnterior,
+                        puntosOtorgados = 0,
+                        message = $"El reporte ya se encuentra en estado {reporte.Estado}."
+                    });
+                }
+
+                bool yaFueResuelto = estadoDestino == "Resuelto" &&
+                    await _context.HistorialEstados.AnyAsync(h => h.ReporteId == id && h.EstadoNuevo == "Resuelto");
+
+                reporte.Estado = estadoDestino;
+                _context.HistorialEstados.Add(new HistorialEstado
+                {
+                    EstadoAnterior = estadoAnterior,
+                    EstadoNuevo = estadoDestino,
+                    FechaCambio = DateTime.Now,
+                    ReporteId = id,
+                    UsuarioId = UsuarioActualId
+                });
+
+                await _context.SaveChangesAsync();
+
+                int puntosOtorgados = 0;
+                if (estadoDestino == "Resuelto" && !yaFueResuelto)
+                {
+                    await _reputacionService.AgregarPuntosAsync(
+                        reporte.UsuarioId,
+                        10,
+                        "Tu reporte comunitario fue atendido y resuelto");
+                    puntosOtorgados = 10;
+                }
+
+                var mensaje = puntosOtorgados > 0
+                    ? $"Reporte marcado como Resuelto (+{puntosOtorgados} pts al autor)."
+                    : $"Estado actualizado de {estadoAnterior} a {estadoDestino}.";
+
+                return Json(new
+                {
+                    success = true,
+                    estado = reporte.Estado,
+                    estadoAnterior,
+                    puntosOtorgados,
+                    message = mensaje
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al cambiar estado del reporte ID={Id} a {Estado}", id, nuevoEstado);
+                return Json(new { success = false, message = "Error interno del servidor al cambiar el estado." });
             }
         }
 

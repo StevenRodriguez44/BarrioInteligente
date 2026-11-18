@@ -159,7 +159,8 @@
             <div class="feed-body mis-reportes-grid">
                 @foreach (var r in Model)
                 {
-                    var estadoClass = r.Estado == "Resuelto" ? "resuelto" : (r.Estado == "En Proceso" ? "en-proceso" : "pendiente");
+                    var estadoTexto = string.IsNullOrWhiteSpace(r.Estado) ? "Pendiente" : r.Estado;
+                    var estadoClass = estadoTexto == "Resuelto" ? "resuelto" : (estadoTexto == "En Proceso" ? "en-proceso" : "pendiente");
                     var emoji = r.Categoria switch {
                         "Bache"  => "🚧",
                         "Basura" => "🗑️",
@@ -182,7 +183,7 @@
                         <div class="card-body">
                             <div class="card-meta">
                                 <span class="card-categoria">@r.Categoria</span>
-                                <span class="card-estado @estadoClass">@r.Estado</span>
+                                <span class="card-estado @estadoClass">@estadoTexto</span>
                             </div>
                             <p class="card-titulo">@r.Titulo</p>
                             <p class="card-desc">@r.Descripcion</p>
