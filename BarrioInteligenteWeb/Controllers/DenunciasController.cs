@@ -160,6 +160,7 @@ namespace BarrioInteligenteWeb.Controllers
             try
             {
                 var usuario = await _context.Usuarios
+                    .AsNoTracking()
                     .Where(u => u.Id == id)
                     .Select(u => new
                     {
@@ -167,7 +168,6 @@ namespace BarrioInteligenteWeb.Controllers
                         nombre = u.NombreCompleto,
                         foto = u.FotoPerfil ?? "",
                         puntos = u.PuntosReputacion,
-                        nivel = u.Reputacion.ToString(),
                         miembro = u.FechaRegistro.ToString("MMMM yyyy")
                     })
                     .FirstOrDefaultAsync();
@@ -175,7 +175,19 @@ namespace BarrioInteligenteWeb.Controllers
                 if (usuario == null)
                     return Json(new { success = false, message = "Usuario no encontrado." });
 
-                return Json(new { success = true, data = usuario });
+                return Json(new
+                {
+                    success = true,
+                    data = new
+                    {
+                        usuario.id,
+                        usuario.nombre,
+                        usuario.foto,
+                        usuario.puntos,
+                        nivel = ProfanityService.CalcularNivel(usuario.puntos).ToString(),
+                        usuario.miembro
+                    }
+                });
             }
             catch (Exception ex)
             {
