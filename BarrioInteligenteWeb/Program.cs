@@ -78,6 +78,8 @@ try
         var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
         context.Database.Migrate();
         DemoDataSeeder.Seed(context);
+        DemoDataSeeder.SincronizarReputaciones(context);
+        DemoDataSeeder.SeedEntidadesYEquipos(context);
     }
     // Debe ir primero: transforma los headers X-Forwarded-* antes que el resto del pipeline
     app.UseForwardedHeaders();

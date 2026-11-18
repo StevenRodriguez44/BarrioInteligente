@@ -1,0 +1,1029 @@
+@model BarrioInteligenteWeb.Models.EquiposIndexViewModel
+@using BarrioInteligenteWeb.Models
+@{
+    Layout = null;
+    ViewData["Title"] = "Coordinación y Equipos";
+    ViewData["ActiveTab"] = "Equipos";
+
+    var entidades = Model.Entidades;
+    var comunicados = Model.Comunicados;
+    var staff = Model.Staff;
+    var reportesActivos = Model.ReportesActivos;
+
+    int totalEntidades = entidades.Count(e => e.Activa);
+    int totalComunicados = comunicados.Count;
+    int totalEnviados = comunicados.Count(c => c.Estado == "Enviado");
+    int totalEnAtencion = comunicados.Count(c => c.Estado == "En Atención");
+    int totalCompletados = comunicados.Count(c => c.Estado == "Completado");
+}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>@ViewData["Title"] — Barrio Inteligente</title>
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/css/barrio.css" asp-append-version="true" />
+    <style>
+        .equipos-page-wrap {
+            width: 100%;
+            max-width: 1280px;
+            margin: 0 auto;
+            padding: 24px 16px 90px;
+        }
+        @@media (min-width: 769px) {
+            .equipos-page-wrap {
+                padding: 32px 32px 64px;
+            }
+        }
+
+        /* KPI Grid */
+        .eq-stats-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 14px;
+            margin-bottom: 24px;
+        }
+        @@media (min-width: 992px) {
+            .eq-stats-grid {
+                grid-template-columns: repeat(4, 1fr);
+            }
+        }
+        .eq-stat-card {
+            background: #ffffff;
+            border: 1px solid #e5e7eb;
+            border-radius: 16px;
+            padding: 18px 20px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
+        }
+        .eq-stat-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+        }
+        .eq-stat-label {
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #6b7280;
+            display: block;
+            margin-bottom: 6px;
+        }
+        .eq-stat-val {
+            font-size: 28px;
+            font-weight: 800;
+            color: #111827;
+            line-height: 1.1;
+        }
+        .eq-stat-sub {
+            font-size: 11.5px;
+            color: #6b7280;
+            margin-top: 6px;
+            display: block;
+        }
+
+        /* Tarjetas blancas minimalistas */
+        .eq-panel-card {
+            background: #ffffff;
+            border: 1px solid #e5e7eb;
+            border-radius: 16px;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.03);
+        }
+
+        /* Directorio de Entidades */
+        .entidad-item-card {
+            background: #ffffff;
+            border: 1px solid #e5e7eb;
+            border-radius: 14px;
+            padding: 14px 16px;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            position: relative;
+        }
+        .entidad-item-card:hover {
+            border-color: #9ca3af;
+            background: #fafafa;
+        }
+        .entidad-item-card.selected {
+            border-color: #111827;
+            background: #f8fafc;
+            box-shadow: 0 0 0 1px #111827;
+        }
+        .entidad-siglas-pill {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            font-weight: 800;
+            letter-spacing: 0.4px;
+            padding: 4px 10px;
+            border-radius: 8px;
+            color: #ffffff;
+        }
+
+        /* Roles de Staff */
+        .badge-rol {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 3px 9px;
+            border-radius: 8px;
+            font-size: 11px;
+            font-weight: 700;
+        }
+        .badge-rol-admin {
+            background-color: #fee2e2;
+            color: #991b1b;
+            border: 1px solid #fecaca;
+        }
+        .badge-rol-inspector {
+            background-color: #e0f2fe;
+            color: #0369a1;
+            border: 1px solid #bae6fd;
+        }
+        .badge-rol-moderador {
+            background-color: #f3e8ff;
+            color: #7e22ce;
+            border: 1px solid #e9d5ff;
+        }
+
+        /* Filtros */
+        .eq-filter-btn {
+            border: 1px solid #e5e7eb;
+            background: #ffffff;
+            color: #4b5563;
+            font-size: 12.5px;
+            font-weight: 600;
+            padding: 6px 14px;
+            border-radius: 9999px;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+        .eq-filter-btn:hover {
+            background: #f3f4f6;
+            color: #111827;
+        }
+        .eq-filter-btn.active {
+            background: #111827;
+            color: #ffffff;
+            border-color: #111827;
+        }
+
+        /* Tarjetas de Comunicados */
+        .comunicado-card {
+            background: #ffffff;
+            border: 1px solid #e5e7eb;
+            border-radius: 16px;
+            padding: 18px 20px;
+            transition: box-shadow 0.15s ease;
+        }
+        .comunicado-card:hover {
+            box-shadow: 0 4px 14px rgba(0,0,0,0.04);
+        }
+        .prio-pill {
+            font-size: 11px;
+            font-weight: 700;
+            padding: 3px 9px;
+            border-radius: 9999px;
+        }
+        .prio-normal { background: #f3f4f6; color: #374151; border: 1px solid #e5e7eb; }
+        .prio-alta { background: #fef3c7; color: #b45309; border: 1px solid #fde68a; }
+        .prio-urgente { background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
+
+        .estado-pill {
+            font-size: 11px;
+            font-weight: 700;
+            padding: 3px 10px;
+            border-radius: 9999px;
+        }
+        .estado-enviado { background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; }
+        .estado-atencion { background: #fffbeb; color: #b45309; border: 1px solid #fde68a; }
+        .estado-completado { background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; }
+
+        .btn-dark-bi {
+            background: #111827;
+            color: #ffffff;
+            border: none;
+            font-weight: 600;
+            transition: background 0.15s ease;
+        }
+        .btn-dark-bi:hover {
+            background: #1f2937;
+            color: #ffffff;
+        }
+    </style>
+</head>
+<body>
+<div class="app-screen">
+    @await Html.PartialAsync("_AppHeader")
+
+    <div class="equipos-page-wrap">
+        @Html.AntiForgeryToken()
+
+        <!-- Cabecera de sección -->
+        <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-3">
+            <div>
+                <div class="d-flex align-items-center gap-2 mb-1">
+                    <span class="badge" style="background:#8B1E1E;color:#fff;font-size:11px;padding:4px 9px;border-radius:6px;">COORDINACIÓN OPERATIVA</span>
+                    <span class="text-muted small">&bull; Personal Staff y Administración</span>
+                </div>
+                <h2 class="fw-bold mb-1" style="font-size:1.6rem; letter-spacing:-0.5px; color:#111827;">Equipos y Entidades Responsables</h2>
+                <p class="text-muted small mb-0">Despacho de incidencias y comunicación directa con MOPC, Ayuntamiento, EDEESTE, JCE, CAASD y cuadrillas internas.</p>
+            </div>
+            <div class="d-flex align-items-center gap-2">
+                <button type="button" class="btn btn-dark-bi btn-sm rounded-pill px-3 py-2" data-bs-toggle="modal" data-bs-target="#modalNuevaEntidad">
+                    + Nueva Entidad / Cuadrilla
+                </button>
+                <a href="@Url.Action("Index", "Reportes")" class="btn btn-outline-dark btn-sm rounded-pill px-3 py-2 fw-semibold">
+                    &larr; Volver al Mapa
+                </a>
+            </div>
+        </div>
+
+        @if (TempData["SuccessMessage"] != null)
+        {
+            <div class="alert alert-success border-0 rounded-4 shadow-sm mb-3">@TempData["SuccessMessage"]</div>
+        }
+        @if (TempData["ErrorMessage"] != null)
+        {
+            <div class="alert alert-danger border-0 rounded-4 shadow-sm mb-3">@TempData["ErrorMessage"]</div>
+        }
+
+        <!-- Tarjetas KPI Superiores -->
+        <div class="eq-stats-grid">
+            <div class="eq-stat-card" style="border-left: 3px solid #8B1E1E;">
+                <span class="eq-stat-label">Entidades / Cuadrillas</span>
+                <span class="eq-stat-val" id="kpiEntidades">@totalEntidades</span>
+                <span class="eq-stat-sub">Canales institucionales activos</span>
+            </div>
+            <div class="eq-stat-card">
+                <span class="eq-stat-label">Comunicados Totales</span>
+                <span class="eq-stat-val" id="kpiTotal">@totalComunicados</span>
+                <span class="eq-stat-sub">Historial de despachos emitidos</span>
+            </div>
+            <div class="eq-stat-card" style="border-left: 3px solid #2563eb;">
+                <span class="eq-stat-label">Pendientes / Enviados</span>
+                <span class="eq-stat-val text-primary" id="kpiEnviados">@totalEnviados</span>
+                <span class="eq-stat-sub">Esperando respuesta operativa</span>
+            </div>
+            <div class="eq-stat-card" style="border-left: 3px solid #059669;">
+                <span class="eq-stat-label">En Atención / Completados</span>
+                <span class="eq-stat-val" style="color:#059669;" id="kpiAtencionCompletados">@(totalEnAtencion + totalCompletados)</span>
+                <span class="eq-stat-sub" id="kpiDesgloseSub">@totalEnAtencion en atención &middot; @totalCompletados completados</span>
+            </div>
+        </div>
+
+        <div class="row g-4 align-items-start">
+            <!-- Columna Izquierda: Directorio de Entidades + Staff Interno -->
+            <div class="col-12 col-lg-5 d-flex flex-column gap-4">
+                <!-- Directorio Visual de Entidades -->
+                <div class="eq-panel-card p-4">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <div>
+                            <h5 class="fw-bold mb-0" style="color:#111827;">Directorio de Entidades</h5>
+                            <small class="text-muted">Haz clic en una entidad para filtrar y redactar</small>
+                        </div>
+                        <button type="button" id="btnLimpiarEntidadFiltro" class="btn btn-sm btn-light border rounded-pill px-2 py-1 d-none" style="font-size:11.5px;font-weight:600;" onclick="seleccionarEntidadFiltro(0)">
+                            Ver todas
+                        </button>
+                    </div>
+
+                    <div class="d-flex flex-column gap-2" id="directorioEntidadesList">
+                        @foreach (var ent in entidades)
+                        {
+                            var countEnt = comunicados.Count(c => c.EntidadResponsableId == ent.Id);
+                            var siglasTxt = string.IsNullOrWhiteSpace(ent.Siglas) ? ent.CategoriaServicio : ent.Siglas;
+                            <div class="entidad-item-card" data-entidad-id="@ent.Id" onclick="seleccionarEntidadFiltro(@ent.Id)">
+                                <div class="d-flex justify-content-between align-items-start gap-2">
+                                    <div class="d-flex align-items-center gap-2 flex-wrap">
+                                        <span class="entidad-siglas-pill" style="background-color:@ent.ColorHex;">@siglasTxt</span>
+                                        <span class="badge bg-light text-secondary border" style="font-size:11px;">@ent.CategoriaServicio</span>
+                                    </div>
+                                    <span class="badge bg-light text-dark border rounded-pill" style="font-size:11px;" data-ent-count="@ent.Id">@countEnt despachos</span>
+                                </div>
+                                <div class="fw-semibold mt-2" style="color:#111827;font-size:13.5px;">@ent.Nombre</div>
+                                <div class="text-muted mt-1" style="font-size:12px;">
+                                    @if (!string.IsNullOrWhiteSpace(ent.ResponsableNombre))
+                                    {
+                                        <span>@ent.ResponsableNombre</span>
+                                    }
+                                    @if (!string.IsNullOrWhiteSpace(ent.TelefonoContacto))
+                                    {
+                                        <span> &middot; @ent.TelefonoContacto</span>
+                                    }
+                                </div>
+                                @if (!string.IsNullOrWhiteSpace(ent.CorreoContacto) || !string.IsNullOrWhiteSpace(ent.CanalAtencion))
+                                {
+                                    <div class="text-muted mt-1" style="font-size:11.5px;">
+                                        @if (!string.IsNullOrWhiteSpace(ent.CanalAtencion))
+                                        {
+                                            <span>Canal: @ent.CanalAtencion</span>
+                                        }
+                                        @if (!string.IsNullOrWhiteSpace(ent.CorreoContacto))
+                                        {
+                                            <span> &middot; @ent.CorreoContacto</span>
+                                        }
+                                    </div>
+                                }
+                            </div>
+                        }
+                    </div>
+                </div>
+
+                <!-- Directorio del Staff Interno -->
+                <div class="eq-panel-card p-4">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <div>
+                            <h5 class="fw-bold mb-0" style="color:#111827;">Staff Interno Activo</h5>
+                            <small class="text-muted">Administradores, Inspectores Urbanos y Moderadores</small>
+                        </div>
+                        <span class="badge bg-light text-dark border rounded-pill">@staff.Count miembros</span>
+                    </div>
+
+                    <div class="d-flex flex-column gap-2">
+                        @foreach (var miembro in staff)
+                        {
+                            bool mAdmin = miembro.EsAdmin || miembro.Rol == RolesUsuario.Administrador || miembro.Correo == "stevenrodriguez77777@gmail.com" || miembro.Correo == "christopherxd2005@gmail.com";
+                            string rolTexto = mAdmin ? RolesUsuario.Administrador : (string.IsNullOrWhiteSpace(miembro.Rol) ? RolesUsuario.InspectorUrbano : miembro.Rol);
+                            string rolClase = rolTexto switch
+                            {
+                                RolesUsuario.Administrador => "badge-rol-admin",
+                                RolesUsuario.InspectorUrbano => "badge-rol-inspector",
+                                RolesUsuario.Moderador => "badge-rol-moderador",
+                                _ => "badge-rol-inspector"
+                            };
+                            var inicial = string.IsNullOrWhiteSpace(miembro.NombreCompleto) ? "S" : miembro.NombreCompleto[..1].ToUpperInvariant();
+                            <div class="d-flex align-items-center justify-content-between p-2 rounded-3 border bg-light bg-opacity-50 gap-2">
+                                <div class="d-flex align-items-center gap-2 overflow-hidden">
+                                    @if (!string.IsNullOrWhiteSpace(miembro.FotoPerfil))
+                                    {
+                                        <img src="@miembro.FotoPerfil" alt="@miembro.NombreCompleto" class="rounded-circle border flex-shrink-0" style="width:36px;height:36px;object-fit:cover;" />
+                                    }
+                                    else
+                                    {
+                                        <div class="rounded-circle d-flex align-items-center justify-content-center fw-bold text-white flex-shrink-0" style="width:36px;height:36px;background:#111827;font-size:13px;">@inicial</div>
+                                    }
+                                    <div class="overflow-hidden">
+                                        <div class="fw-semibold text-truncate" style="font-size:13px;color:#111827;">@miembro.NombreCompleto</div>
+                                        <div class="text-muted text-truncate" style="font-size:11.5px;">@miembro.Correo</div>
+                                    </div>
+                                </div>
+                                <span class="badge-rol @rolClase flex-shrink-0">@rolTexto</span>
+                            </div>
+                        }
+                        @if (!staff.Any())
+                        {
+                            <p class="text-muted small mb-0">No hay miembros de staff registrados.</p>
+                        }
+                    </div>
+                </div>
+            </div>
+
+            <!-- Columna Derecha: Panel de Redacción + Hilo de Comunicados -->
+            <div class="col-12 col-lg-7 d-flex flex-column gap-4">
+                <!-- Panel de Redacción de Comunicado / Despacho -->
+                <div class="eq-panel-card p-4">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <div>
+                            <h5 class="fw-bold mb-0" style="color:#111827;">Nuevo Comunicado o Despacho</h5>
+                            <small class="text-muted">Envía órdenes de trabajo a entidades externas o a la cuadrilla interna</small>
+                        </div>
+                        <span class="badge" style="background:#fef2f2;color:#8B1E1E;border:1px solid #fecaca;font-size:11px;">Despacho Directo</span>
+                    </div>
+
+                    <form id="formEnviarComunicado" onsubmit="enviarComunicadoAjax(event)">
+                        <div class="row g-3">
+                            <div class="col-12 col-md-7">
+                                <label class="form-label small fw-semibold text-dark mb-1" for="comEntidadId">Entidad o Cuadrilla *</label>
+                                <select id="comEntidadId" name="entidadResponsableId" class="form-select rounded-3" required onchange="actualizarInfoEntidadSeleccionada()">
+                                    @foreach (var ent in entidades.Where(e => e.Activa))
+                                    {
+                                        <option value="@ent.Id" data-correo="@(ent.CorreoContacto ?? "")" data-canal="@(ent.CanalAtencion ?? "")">
+                                            @(!string.IsNullOrWhiteSpace(ent.Siglas) ? $"[{ent.Siglas}] " : "")@ent.Nombre
+                                        </option>
+                                    }
+                                </select>
+                                <small id="entidadCorreoHint" class="text-muted d-block mt-1" style="font-size:11.5px;"></small>
+                            </div>
+
+                            <div class="col-12 col-md-5">
+                                <label class="form-label small fw-semibold text-dark mb-1" for="comPrioridad">Prioridad</label>
+                                <select id="comPrioridad" name="prioridad" class="form-select rounded-3">
+                                    <option value="Normal" selected>Normal</option>
+                                    <option value="Alta">Alta</option>
+                                    <option value="Urgente">Urgente</option>
+                                </select>
+                            </div>
+
+                            <div class="col-12 col-md-6">
+                                <label class="form-label small fw-semibold text-dark mb-1" for="comAsignadoId">Asignar Inspector / Staff (Opcional)</label>
+                                <select id="comAsignadoId" name="asignadoUsuarioId" class="form-select rounded-3">
+                                    <option value="">-- Sin asignación específica --</option>
+                                    @foreach (var s in staff)
+                                    {
+                                        <option value="@s.Id">@s.NombreCompleto (@(s.EsAdmin ? RolesUsuario.Administrador : s.Rol))</option>
+                                    }
+                                </select>
+                            </div>
+
+                            <div class="col-12 col-md-6">
+                                <label class="form-label small fw-semibold text-dark mb-1" for="comReporteId">Vincular Reporte Activo (Opcional)</label>
+                                <select id="comReporteId" name="reporteId" class="form-select rounded-3" onchange="toggleOpcionesReporte()">
+                                    <option value="">-- Comunicado general (sin reporte) --</option>
+                                    @foreach (var rep in reportesActivos)
+                                    {
+                                        <option value="@rep.Id" data-estado="@rep.Estado">#@rep.Id — @rep.Titulo (@rep.Categoria &middot; @rep.Estado)</option>
+                                    }
+                                </select>
+                            </div>
+
+                            <div class="col-12">
+                                <label class="form-label small fw-semibold text-dark mb-1" for="comAsunto">Asunto *</label>
+                                <input type="text" id="comAsunto" name="asunto" class="form-control rounded-3" maxlength="140" required placeholder="Ej. Despacho de cuadrilla para bacheo en Av. Máximo Gómez" />
+                            </div>
+
+                            <div class="col-12">
+                                <label class="form-label small fw-semibold text-dark mb-1" for="comMensaje">Mensaje e instrucciones operativas *</label>
+                                <textarea id="comMensaje" name="mensaje" class="form-control rounded-3" rows="3" maxlength="1500" required placeholder="Describe la ubicación exacta, prioridad en campo, contacto ciudadano o solicitud de verificación..."></textarea>
+                            </div>
+
+                            <div class="col-12 d-flex flex-wrap gap-4 align-items-center">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="chkMarcarEnProceso" name="marcarEnProceso" value="true" disabled />
+                                    <label class="form-check-label small text-dark" for="chkMarcarEnProceso">
+                                        Marcar reporte vinculado como <strong>En Proceso</strong>
+                                    </label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="chkEnviarCorreo" name="enviarCorreo" value="true" />
+                                    <label class="form-check-label small text-dark" for="chkEnviarCorreo">
+                                        Enviar copia por correo electrónico a la entidad
+                                    </label>
+                                </div>
+                            </div>
+
+                            <div class="col-12 d-flex flex-wrap justify-content-between align-items-center gap-2 pt-1">
+                                <div id="comunicadoFeedback" class="small fw-semibold" style="display:none;"></div>
+                                <button type="submit" id="btnEnviarComunicado" class="btn btn-dark-bi rounded-pill px-4 py-2 ms-auto">
+                                    Despachar Comunicado
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Hilo de Comunicados e Informes -->
+                <div class="eq-panel-card p-4">
+                    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+                        <div>
+                            <h5 class="fw-bold mb-0" style="color:#111827;">Hilo de Comunicados e Informes</h5>
+                            <small class="text-muted" id="subtituloFiltroEntidad">Mostrando todas las entidades y cuadrillas</small>
+                        </div>
+                        <div style="min-width: 210px;">
+                            <input type="text" id="buscadorComunicados" class="form-control form-control-sm rounded-pill" placeholder="Buscar asunto, entidad o reporte..." onkeyup="aplicarFiltrosComunicados()" />
+                        </div>
+                    </div>
+
+                    <!-- Filtros por Estado -->
+                    <div class="d-flex flex-wrap gap-2 mb-3">
+                        <button type="button" class="eq-filter-btn active" onclick="seleccionarEstadoFiltro('Todos', this)">Todos</button>
+                        <button type="button" class="eq-filter-btn" onclick="seleccionarEstadoFiltro('Enviado', this)">Enviado</button>
+                        <button type="button" class="eq-filter-btn" onclick="seleccionarEstadoFiltro('En Atención', this)">En Atención</button>
+                        <button type="button" class="eq-filter-btn" onclick="seleccionarEstadoFiltro('Completado', this)">Completado</button>
+                    </div>
+
+                    <div id="listaComunicados" class="d-flex flex-column gap-3">
+                        @foreach (var com in comunicados)
+                        {
+                            var ent = com.EntidadResponsable;
+                            var siglas = ent != null && !string.IsNullOrWhiteSpace(ent.Siglas) ? ent.Siglas : (ent?.CategoriaServicio ?? "EQUIPO");
+                            var colorEnt = ent?.ColorHex ?? "#111827";
+                            var prioClass = com.Prioridad switch
+                            {
+                                "Urgente" => "prio-urgente",
+                                "Alta" => "prio-alta",
+                                _ => "prio-normal"
+                            };
+                            var estClass = com.Estado switch
+                            {
+                                "En Atención" => "estado-atencion",
+                                "Completado" => "estado-completado",
+                                _ => "estado-enviado"
+                            };
+                            <div class="comunicado-card"
+                                 id="com-card-@com.Id"
+                                 data-entidad-id="@com.EntidadResponsableId"
+                                 data-estado="@com.Estado"
+                                 data-search="@($"{com.Asunto} {com.Mensaje} {ent?.Nombre} {siglas} {com.Reporte?.Titulo}".ToLowerInvariant())">
+                                <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+                                    <div class="d-flex flex-wrap align-items-center gap-2">
+                                        <span class="entidad-siglas-pill" style="background-color:@colorEnt;">@siglas</span>
+                                        <span class="prio-pill @prioClass">@com.Prioridad</span>
+                                        <span class="estado-pill @estClass" id="com-estado-badge-@com.Id">@com.Estado</span>
+                                    </div>
+                                    <span class="text-muted" style="font-size:11.5px;">@com.FechaCreacion.ToString("dd/MM/yyyy HH:mm")</span>
+                                </div>
+
+                                <h6 class="fw-bold mb-1" style="color:#111827;">@com.Asunto</h6>
+                                <p class="text-secondary mb-2" style="font-size:13.5px;white-space:pre-line;">@com.Mensaje</p>
+
+                                <div class="d-flex flex-wrap align-items-center gap-3 text-muted mb-2" style="font-size:12px;">
+                                    <span><strong>Entidad:</strong> @(ent?.Nombre ?? "Sin entidad")</span>
+                                    <span><strong>Emitido por:</strong> @(com.EmisorUsuario?.NombreCompleto ?? "Staff")</span>
+                                    @if (com.AsignadoUsuario != null)
+                                    {
+                                        <span><strong>Asignado a:</strong> @com.AsignadoUsuario.NombreCompleto</span>
+                                    }
+                                </div>
+
+                                @if (com.Reporte != null)
+                                {
+                                    <div class="p-2 px-3 rounded-3 border bg-light mb-2 d-flex flex-wrap justify-content-between align-items-center gap-2">
+                                        <div style="font-size:12.5px;">
+                                            <span class="text-muted">Reporte vinculado:</span>
+                                            <a href="@Url.Action("Detalles", "Reportes", new { id = com.Reporte.Id })" class="fw-semibold text-decoration-none" style="color:#8B1E1E;">
+                                                #@com.Reporte.Id &mdash; @com.Reporte.Titulo
+                                            </a>
+                                            <span class="badge bg-white text-dark border ms-1">@com.Reporte.Estado</span>
+                                        </div>
+                                        <a href="@Url.Action("Detalles", "Reportes", new { id = com.Reporte.Id })" class="btn btn-sm btn-outline-dark rounded-pill px-2 py-0" style="font-size:11.5px;">
+                                            Ver reporte
+                                        </a>
+                                    </div>
+                                }
+
+                                <div id="com-nota-box-@com.Id" class="p-2 px-3 rounded-3 border mb-2 @(string.IsNullOrWhiteSpace(com.NotaRespuesta) ? "d-none" : "")" style="background:#f8fafc;font-size:12.5px;">
+                                    <strong style="color:#111827;">Nota de seguimiento:</strong>
+                                    <span id="com-nota-text-@com.Id" class="text-secondary">@com.NotaRespuesta</span>
+                                    @if (com.FechaActualizacion.HasValue)
+                                    {
+                                        <span id="com-fecha-act-@com.Id" class="text-muted ms-2" style="font-size:11px;">(@com.FechaActualizacion.Value.ToString("dd/MM/yyyy HH:mm"))</span>
+                                    }
+                                    else
+                                    {
+                                        <span id="com-fecha-act-@com.Id" class="text-muted ms-2" style="font-size:11px;"></span>
+                                    }
+                                </div>
+
+                                <div class="d-flex flex-wrap align-items-center gap-2 pt-2 border-top mt-2">
+                                    <input type="text" id="nota-input-@com.Id" class="form-control form-control-sm rounded-3 flex-grow-1" style="min-width:200px;" placeholder="Agregar o actualizar nota de respuesta / seguimiento..." value="@com.NotaRespuesta" />
+                                    <div class="d-flex gap-1 flex-wrap">
+                                        <button type="button" class="btn btn-sm btn-outline-warning text-dark rounded-pill px-3 fw-semibold" style="font-size:12px;" onclick="actualizarEstadoComunicado(@com.Id, 'En Atención')">
+                                            En Atención
+                                        </button>
+                                        <button type="button" class="btn btn-sm btn-outline-success rounded-pill px-3 fw-semibold" style="font-size:12px;" onclick="actualizarEstadoComunicado(@com.Id, 'Completado')">
+                                            Completado
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                    </div>
+
+                    <div id="emptyComunicadosMsg" class="text-center py-4 text-muted @(comunicados.Any() ? "d-none" : "")">
+                        No hay comunicados que coincidan con los filtros seleccionados.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @await Html.PartialAsync("_BottomNav")
+</div>
+
+<!-- Modal Nueva Entidad / Cuadrilla -->
+<div class="modal fade" id="modalNuevaEntidad" tabindex="-1" aria-labelledby="modalNuevaEntidadLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content rounded-4 border-0 shadow">
+            <div class="modal-header border-bottom px-4 py-3">
+                <h5 class="modal-title fw-bold" id="modalNuevaEntidadLabel" style="color:#111827;">Registrar Nueva Entidad o Cuadrilla</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <form id="formCrearEntidad" onsubmit="crearEntidadAjax(event)">
+                <div class="modal-body px-4 py-3">
+                    <div class="row g-3">
+                        <div class="col-12 col-sm-8">
+                            <label class="form-label small fw-semibold" for="entNombre">Nombre de la Entidad / Cuadrilla *</label>
+                            <input type="text" id="entNombre" name="nombre" class="form-control rounded-3" maxlength="120" required placeholder="Ej. INAPA / Brigada Sector Norte" />
+                        </div>
+                        <div class="col-12 col-sm-4">
+                            <label class="form-label small fw-semibold" for="entSiglas">Siglas</label>
+                            <input type="text" id="entSiglas" name="siglas" class="form-control rounded-3" maxlength="20" placeholder="Ej. INAPA" />
+                        </div>
+                        <div class="col-12 col-sm-7">
+                            <label class="form-label small fw-semibold" for="entCategoria">Categoría de Servicio *</label>
+                            <input type="text" id="entCategoria" name="categoriaServicio" class="form-control rounded-3" maxlength="50" required placeholder="Ej. Agua y Drenaje, Seguridad, Vialidad" />
+                        </div>
+                        <div class="col-12 col-sm-5">
+                            <label class="form-label small fw-semibold" for="entColor">Color Identificador</label>
+                            <input type="color" id="entColor" name="colorHex" class="form-control form-control-color w-100 rounded-3" value="#111827" />
+                        </div>
+                        <div class="col-12 col-sm-6">
+                            <label class="form-label small fw-semibold" for="entResponsable">Responsable / Enlace</label>
+                            <input type="text" id="entResponsable" name="responsableNombre" class="form-control rounded-3" maxlength="100" placeholder="Nombre del coordinador" />
+                        </div>
+                        <div class="col-12 col-sm-6">
+                            <label class="form-label small fw-semibold" for="entTelefono">Teléfono</label>
+                            <input type="text" id="entTelefono" name="telefonoContacto" class="form-control rounded-3" maxlength="30" placeholder="(809) 000-0000" />
+                        </div>
+                        <div class="col-12 col-sm-6">
+                            <label class="form-label small fw-semibold" for="entCorreo">Correo de Contacto</label>
+                            <input type="email" id="entCorreo" name="correoContacto" class="form-control rounded-3" maxlength="150" placeholder="enlace@entidad.gob.do" />
+                        </div>
+                        <div class="col-12 col-sm-6">
+                            <label class="form-label small fw-semibold" for="entCanal">Canal de Atención</label>
+                            <input type="text" id="entCanal" name="canalAtencion" class="form-control rounded-3" maxlength="100" placeholder="Mesa 311 / WhatsApp Operativo" />
+                        </div>
+                    </div>
+                    <div id="entidadFeedback" class="small fw-semibold mt-3" style="display:none;"></div>
+                </div>
+                <div class="modal-footer border-top px-4 py-3">
+                    <button type="button" class="btn btn-light border rounded-pill px-3" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" id="btnGuardarEntidad" class="btn btn-dark-bi rounded-pill px-4">Guardar Entidad</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    let filtroEntidadId = 0;
+    let filtroEstadoActual = 'Todos';
+
+    function getAntiForgeryToken() {
+        const input = document.querySelector('input[name="__RequestVerificationToken"]');
+        return input ? input.value : '';
+    }
+
+    function escapeHtml(str) {
+        if (str === null || str === undefined) return '';
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
+    function actualizarInfoEntidadSeleccionada() {
+        const select = document.getElementById('comEntidadId');
+        const option = select.options[select.selectedIndex];
+        const hint = document.getElementById('entidadCorreoHint');
+        const chkCorreo = document.getElementById('chkEnviarCorreo');
+        if (!option) return;
+
+        const correo = option.getAttribute('data-correo') || '';
+        const canal = option.getAttribute('data-canal') || '';
+        const partes = [];
+        if (canal) partes.push('Canal: ' + canal);
+        if (correo) partes.push('Correo: ' + correo);
+        hint.textContent = partes.join(' · ');
+
+        chkCorreo.disabled = !correo;
+        if (!correo) chkCorreo.checked = false;
+    }
+
+    function toggleOpcionesReporte() {
+        const select = document.getElementById('comReporteId');
+        const chk = document.getElementById('chkMarcarEnProceso');
+        if (!select.value) {
+            chk.checked = false;
+            chk.disabled = true;
+            return;
+        }
+        const opt = select.options[select.selectedIndex];
+        const estado = opt ? opt.getAttribute('data-estado') : '';
+        chk.disabled = false;
+        chk.checked = (estado === 'Pendiente');
+    }
+
+    function seleccionarEntidadFiltro(entidadId) {
+        filtroEntidadId = (filtroEntidadId === entidadId) ? 0 : entidadId;
+
+        document.querySelectorAll('.entidad-item-card').forEach(card => {
+            const id = parseInt(card.getAttribute('data-entidad-id'), 10);
+            card.classList.toggle('selected', filtroEntidadId !== 0 && id === filtroEntidadId);
+        });
+
+        const btnLimpiar = document.getElementById('btnLimpiarEntidadFiltro');
+        const subtitulo = document.getElementById('subtituloFiltroEntidad');
+        if (filtroEntidadId !== 0) {
+            btnLimpiar.classList.remove('d-none');
+            const select = document.getElementById('comEntidadId');
+            if (select) {
+                select.value = String(filtroEntidadId);
+                actualizarInfoEntidadSeleccionada();
+                const selOpt = select.options[select.selectedIndex];
+                subtitulo.textContent = selOpt ? ('Filtrado por: ' + selOpt.textContent.trim()) : 'Filtrado por entidad';
+            }
+        } else {
+            btnLimpiar.classList.add('d-none');
+            subtitulo.textContent = 'Mostrando todas las entidades y cuadrillas';
+        }
+
+        aplicarFiltrosComunicados();
+    }
+
+    function seleccionarEstadoFiltro(estado, btn) {
+        filtroEstadoActual = estado;
+        document.querySelectorAll('.eq-filter-btn').forEach(b => b.classList.remove('active'));
+        if (btn) btn.classList.add('active');
+        aplicarFiltrosComunicados();
+    }
+
+    function aplicarFiltrosComunicados() {
+        const texto = (document.getElementById('buscadorComunicados').value || '').trim().toLowerCase();
+        const cards = document.querySelectorAll('#listaComunicados .comunicado-card');
+        let visibles = 0;
+
+        cards.forEach(card => {
+            const entId = parseInt(card.getAttribute('data-entidad-id'), 10);
+            const estado = card.getAttribute('data-estado') || '';
+            const search = card.getAttribute('data-search') || '';
+
+            const okEnt = filtroEntidadId === 0 || entId === filtroEntidadId;
+            const okEst = filtroEstadoActual === 'Todos' || estado === filtroEstadoActual;
+            const okTxt = !texto || search.includes(texto);
+
+            if (okEnt && okEst && okTxt) {
+                card.style.display = '';
+                visibles++;
+            } else {
+                card.style.display = 'none';
+            }
+        });
+
+        const emptyMsg = document.getElementById('emptyComunicadosMsg');
+        emptyMsg.classList.toggle('d-none', visibles > 0);
+    }
+
+    function recalcularKpisComunicados() {
+        const cards = document.querySelectorAll('#listaComunicados .comunicado-card');
+        let total = 0, enviados = 0, enAtencion = 0, completados = 0;
+        cards.forEach(c => {
+            total++;
+            const est = c.getAttribute('data-estado');
+            if (est === 'Enviado') enviados++;
+            else if (est === 'En Atención') enAtencion++;
+            else if (est === 'Completado') completados++;
+        });
+
+        document.getElementById('kpiTotal').textContent = total;
+        document.getElementById('kpiEnviados').textContent = enviados;
+        document.getElementById('kpiAtencionCompletados').textContent = enAtencion + completados;
+        document.getElementById('kpiDesgloseSub').textContent = `${enAtencion} en atención · ${completados} completados`;
+    }
+
+    function construirHtmlComunicado(com) {
+        const prioClass = com.prioridad === 'Urgente' ? 'prio-urgente' : (com.prioridad === 'Alta' ? 'prio-alta' : 'prio-normal');
+        const estClass = com.estado === 'En Atención' ? 'estado-atencion' : (com.estado === 'Completado' ? 'estado-completado' : 'estado-enviado');
+        const asignadoHtml = com.asignadoNombre ? `<span><strong>Asignado a:</strong> ${escapeHtml(com.asignadoNombre)}</span>` : '';
+        const reporteHtml = com.reporteId ? `
+            <div class="p-2 px-3 rounded-3 border bg-light mb-2 d-flex flex-wrap justify-content-between align-items-center gap-2">
+                <div style="font-size:12.5px;">
+                    <span class="text-muted">Reporte vinculado:</span>
+                    <a href="/Reportes/Detalles/${com.reporteId}" class="fw-semibold text-decoration-none" style="color:#8B1E1E;">
+                        #${com.reporteId} &mdash; ${escapeHtml(com.reporteTitulo)}
+                    </a>
+                    <span class="badge bg-white text-dark border ms-1">${escapeHtml(com.reporteEstado)}</span>
+                </div>
+                <a href="/Reportes/Detalles/${com.reporteId}" class="btn btn-sm btn-outline-dark rounded-pill px-2 py-0" style="font-size:11.5px;">Ver reporte</a>
+            </div>` : '';
+
+        const searchRaw = `${com.asunto} ${com.mensaje} ${com.entidadNombre} ${com.entidadSiglas} ${com.reporteTitulo || ''}`.toLowerCase();
+
+        return `
+            <div class="comunicado-card"
+                 id="com-card-${com.id}"
+                 data-entidad-id="${com.entidadId}"
+                 data-estado="${escapeHtml(com.estado)}"
+                 data-search="${escapeHtml(searchRaw)}">
+                <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+                    <div class="d-flex flex-wrap align-items-center gap-2">
+                        <span class="entidad-siglas-pill" style="background-color:${escapeHtml(com.entidadColor)};">${escapeHtml(com.entidadSiglas)}</span>
+                        <span class="prio-pill ${prioClass}">${escapeHtml(com.prioridad)}</span>
+                        <span class="estado-pill ${estClass}" id="com-estado-badge-${com.id}">${escapeHtml(com.estado)}</span>
+                    </div>
+                    <span class="text-muted" style="font-size:11.5px;">${escapeHtml(com.fechaCreacion)}</span>
+                </div>
+                <h6 class="fw-bold mb-1" style="color:#111827;">${escapeHtml(com.asunto)}</h6>
+                <p class="text-secondary mb-2" style="font-size:13.5px;white-space:pre-line;">${escapeHtml(com.mensaje)}</p>
+                <div class="d-flex flex-wrap align-items-center gap-3 text-muted mb-2" style="font-size:12px;">
+                    <span><strong>Entidad:</strong> ${escapeHtml(com.entidadNombre)}</span>
+                    <span><strong>Emitido por:</strong> ${escapeHtml(com.emisorNombre)}</span>
+                    ${asignadoHtml}
+                </div>
+                ${reporteHtml}
+                <div id="com-nota-box-${com.id}" class="p-2 px-3 rounded-3 border mb-2 d-none" style="background:#f8fafc;font-size:12.5px;">
+                    <strong style="color:#111827;">Nota de seguimiento:</strong>
+                    <span id="com-nota-text-${com.id}" class="text-secondary"></span>
+                    <span id="com-fecha-act-${com.id}" class="text-muted ms-2" style="font-size:11px;"></span>
+                </div>
+                <div class="d-flex flex-wrap align-items-center gap-2 pt-2 border-top mt-2">
+                    <input type="text" id="nota-input-${com.id}" class="form-control form-control-sm rounded-3 flex-grow-1" style="min-width:200px;" placeholder="Agregar o actualizar nota de respuesta / seguimiento..." />
+                    <div class="d-flex gap-1 flex-wrap">
+                        <button type="button" class="btn btn-sm btn-outline-warning text-dark rounded-pill px-3 fw-semibold" style="font-size:12px;" onclick="actualizarEstadoComunicado(${com.id}, 'En Atención')">
+                            En Atención
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-success rounded-pill px-3 fw-semibold" style="font-size:12px;" onclick="actualizarEstadoComunicado(${com.id}, 'Completado')">
+                            Completado
+                        </button>
+                    </div>
+                </div>
+            </div>`;
+    }
+
+    async function enviarComunicadoAjax(event) {
+        event.preventDefault();
+        const form = document.getElementById('formEnviarComunicado');
+        const btn = document.getElementById('btnEnviarComunicado');
+        const fb = document.getElementById('comunicadoFeedback');
+        const fd = new FormData(form);
+
+        btn.disabled = true;
+        btn.textContent = 'Despachando...';
+        fb.style.display = 'none';
+
+        try {
+            const res = await fetch('@Url.Action("EnviarComunicado", "Equipos")', {
+                method: 'POST',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'RequestVerificationToken': getAntiForgeryToken()
+                },
+                body: fd
+            });
+            const data = await res.json();
+            if (data.success) {
+                const lista = document.getElementById('listaComunicados');
+                lista.insertAdjacentHTML('afterbegin', construirHtmlComunicado(data.comunicado));
+
+                // Incrementar contador de despachos de la entidad
+                const entBadge = document.querySelector(`[data-ent-count="${data.comunicado.entidadId}"]`);
+                if (entBadge) {
+                    const actual = parseInt(entBadge.textContent, 10) || 0;
+                    entBadge.textContent = `${actual + 1} despachos`;
+                }
+
+                // Actualizar estado del reporte en el dropdown si cambió a En Proceso
+                if (data.comunicado.reporteId && data.comunicado.reporteEstado) {
+                    const repOpt = document.querySelector(`#comReporteId option[value="${data.comunicado.reporteId}"]`);
+                    if (repOpt) {
+                        repOpt.setAttribute('data-estado', data.comunicado.reporteEstado);
+                    }
+                }
+
+                document.getElementById('comAsunto').value = '';
+                document.getElementById('comMensaje').value = '';
+                recalcularKpisComunicados();
+                aplicarFiltrosComunicados();
+
+                fb.style.display = 'block';
+                fb.className = 'small fw-semibold text-success';
+                fb.textContent = data.correoNota ? `${data.message} (${data.correoNota})` : data.message;
+            } else {
+                fb.style.display = 'block';
+                fb.className = 'small fw-semibold text-danger';
+                fb.textContent = data.message || 'No se pudo enviar el comunicado.';
+            }
+        } catch (err) {
+            console.error(err);
+            fb.style.display = 'block';
+            fb.className = 'small fw-semibold text-danger';
+            fb.textContent = 'Error de conexión al despachar el comunicado.';
+        } finally {
+            btn.disabled = false;
+            btn.textContent = 'Despachar Comunicado';
+        }
+    }
+
+    async function actualizarEstadoComunicado(id, nuevoEstado) {
+        const notaInput = document.getElementById(`nota-input-${id}`);
+        const nota = notaInput ? notaInput.value : '';
+        const fd = new FormData();
+        fd.append('id', id);
+        fd.append('nuevoEstado', nuevoEstado);
+        fd.append('notaRespuesta', nota);
+
+        try {
+            const res = await fetch('@Url.Action("ActualizarEstadoComunicado", "Equipos")', {
+                method: 'POST',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'RequestVerificationToken': getAntiForgeryToken()
+                },
+                body: fd
+            });
+            const data = await res.json();
+            if (data.success) {
+                const card = document.getElementById(`com-card-${id}`);
+                const badge = document.getElementById(`com-estado-badge-${id}`);
+                if (card) card.setAttribute('data-estado', data.estado);
+                if (badge) {
+                    badge.textContent = data.estado;
+                    badge.className = 'estado-pill ' + (data.estado === 'En Atención' ? 'estado-atencion' : (data.estado === 'Completado' ? 'estado-completado' : 'estado-enviado'));
+                }
+                if (data.notaRespuesta) {
+                    const notaBox = document.getElementById(`com-nota-box-${id}`);
+                    const notaText = document.getElementById(`com-nota-text-${id}`);
+                    const fechaAct = document.getElementById(`com-fecha-act-${id}`);
+                    if (notaBox) notaBox.classList.remove('d-none');
+                    if (notaText) notaText.textContent = data.notaRespuesta;
+                    if (fechaAct && data.fechaActualizacion) fechaAct.textContent = `(${data.fechaActualizacion})`;
+                }
+                recalcularKpisComunicados();
+                aplicarFiltrosComunicados();
+            } else {
+                alert(data.message || 'No se pudo actualizar el comunicado.');
+            }
+        } catch (err) {
+            console.error(err);
+            alert('Error de comunicación al actualizar el estado.');
+        }
+    }
+
+    async function crearEntidadAjax(event) {
+        event.preventDefault();
+        const form = document.getElementById('formCrearEntidad');
+        const btn = document.getElementById('btnGuardarEntidad');
+        const fb = document.getElementById('entidadFeedback');
+        const fd = new FormData(form);
+
+        btn.disabled = true;
+        btn.textContent = 'Guardando...';
+        fb.style.display = 'none';
+
+        try {
+            const res = await fetch('@Url.Action("CrearEntidad", "Equipos")', {
+                method: 'POST',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'RequestVerificationToken': getAntiForgeryToken()
+                },
+                body: fd
+            });
+            const data = await res.json();
+            if (data.success) {
+                const e = data.entidad;
+                const dirList = document.getElementById('directorioEntidadesList');
+                const contactoMeta = [e.responsableNombre, e.telefonoContacto].filter(Boolean).join(' · ');
+                const canalMeta = [e.canalAtencion ? ('Canal: ' + e.canalAtencion) : '', e.correoContacto].filter(Boolean).join(' · ');
+
+                const html = `
+                    <div class="entidad-item-card" data-entidad-id="${e.id}" onclick="seleccionarEntidadFiltro(${e.id})">
+                        <div class="d-flex justify-content-between align-items-start gap-2">
+                            <div class="d-flex align-items-center gap-2 flex-wrap">
+                                <span class="entidad-siglas-pill" style="background-color:${escapeHtml(e.colorHex)};">${escapeHtml(e.siglas)}</span>
+                                <span class="badge bg-light text-secondary border" style="font-size:11px;">${escapeHtml(e.categoriaServicio)}</span>
+                            </div>
+                            <span class="badge bg-light text-dark border rounded-pill" style="font-size:11px;" data-ent-count="${e.id}">0 despachos</span>
+                        </div>
+                        <div class="fw-semibold mt-2" style="color:#111827;font-size:13.5px;">${escapeHtml(e.nombre)}</div>
+                        ${contactoMeta ? `<div class="text-muted mt-1" style="font-size:12px;">${escapeHtml(contactoMeta)}</div>` : ''}
+                        ${canalMeta ? `<div class="text-muted mt-1" style="font-size:11.5px;">${escapeHtml(canalMeta)}</div>` : ''}
+                    </div>`;
+                dirList.insertAdjacentHTML('beforeend', html);
+
+                const select = document.getElementById('comEntidadId');
+                const opt = document.createElement('option');
+                opt.value = e.id;
+                opt.setAttribute('data-correo', e.correoContacto || '');
+                opt.setAttribute('data-canal', e.canalAtencion || '');
+                opt.textContent = `[${e.siglas}] ${e.nombre}`;
+                select.appendChild(opt);
+                select.value = e.id;
+                actualizarInfoEntidadSeleccionada();
+
+                const kpiEnt = document.getElementById('kpiEntidades');
+                kpiEnt.textContent = (parseInt(kpiEnt.textContent, 10) || 0) + 1;
+
+                form.reset();
+                document.getElementById('entColor').value = '#111827';
+                const modalEl = document.getElementById('modalNuevaEntidad');
+                const modal = bootstrap.Modal.getInstance(modalEl);
+                if (modal) modal.hide();
+            } else {
+                fb.style.display = 'block';
+                fb.className = 'small fw-semibold mt-3 text-danger';
+                fb.textContent = data.message || 'No se pudo registrar la entidad.';
+            }
+        } catch (err) {
+            console.error(err);
+            fb.style.display = 'block';
+            fb.className = 'small fw-semibold mt-3 text-danger';
+            fb.textContent = 'Error de comunicación al registrar la entidad.';
+        } finally {
+            btn.disabled = false;
+            btn.textContent = 'Guardar Entidad';
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        actualizarInfoEntidadSeleccionada();
+        toggleOpcionesReporte();
+    });
+</script>
+</body>
+</html>

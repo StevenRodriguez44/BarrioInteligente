@@ -1,6 +1,8 @@
 using System.Security.Cryptography;
 using System.Text;
 using BarrioInteligenteWeb.Models;
+using BarrioInteligenteWeb.Services;
+using Microsoft.EntityFrameworkCore;
 
 namespace BarrioInteligenteWeb.Data
 {
@@ -224,6 +226,182 @@ namespace BarrioInteligenteWeb.Data
 
             context.Validaciones.AddRange(validaciones);
             context.SaveChanges();
+        }
+
+        /// <summary>
+        /// Garantiza que la columna Reputacion e insignias de todos los usuarios
+        /// coincidan siempre con sus PuntosReputacion reales.
+        /// </summary>
+        public static void SincronizarReputaciones(ApplicationDbContext context)
+        {
+            var usuarios = context.Usuarios
+                .Include(u => u.Insignias)
+                .ToList();
+
+            bool huboCambios = false;
+            foreach (var u in usuarios)
+            {
+                var nivelEsperado = ProfanityService.CalcularNivel(u.PuntosReputacion);
+                if (u.Reputacion != nivelEsperado)
+                {
+                    u.Reputacion = nivelEsperado;
+                    huboCambios = true;
+                }
+
+                if (u.PuntosReputacion <= 0 && u.Insignias.Any())
+                {
+                    u.Insignias.Clear();
+                    huboCambios = true;
+                }
+            }
+
+            if (huboCambios)
+            {
+                context.SaveChanges();
+            }
+        }
+
+        /// <summary>
+        /// Inserta las entidades responsables y cuadrillas operativas iniciales,
+        /// además de dos comunicados de ejemplo para coordinación de equipos.
+        /// </summary>
+        public static void SeedEntidadesYEquipos(ApplicationDbContext context)
+        {
+            if (!context.EntidadesResponsables.Any())
+            {
+                var entidades = new List<EntidadResponsable>
+                {
+                    new EntidadResponsable
+                    {
+                        Nombre = "Obras Públicas (MOPC) — Reparación de Baches y Asfalto",
+                        Siglas = "MOPC",
+                        CategoriaServicio = "Bache",
+                        ResponsableNombre = "Dirección de Mantenimiento Vial",
+                        CorreoContacto = "vialidad@mopc.gob.do",
+                        TelefonoContacto = "(809) 565-2811",
+                        CanalAtencion = "Mesa Técnica Vial / 311",
+                        ColorHex = "#d97706",
+                        Activa = true
+                    },
+                    new EntidadResponsable
+                    {
+                        Nombre = "Ayuntamiento / Aseo Urbano — Recolección de Basura",
+                        Siglas = "AYUNT",
+                        CategoriaServicio = "Basura",
+                        ResponsableNombre = "Dirección de Aseo Urbano",
+                        CorreoContacto = "aseourbano@ayuntamiento.gob.do",
+                        TelefonoContacto = "(809) 535-1181",
+                        CanalAtencion = "Brigada de Recolección Sectorial",
+                        ColorHex = "#059669",
+                        Activa = true
+                    },
+                    new EntidadResponsable
+                    {
+                        Nombre = "EDEESTE / EDESUR — Alumbrado y Luminarias",
+                        Siglas = "EDEE",
+                        CategoriaServicio = "Luz",
+                        ResponsableNombre = "Unidad de Alumbrado Público",
+                        CorreoContacto = "luminarias@edeeste.com.do",
+                        TelefonoContacto = "(809) 596-1099",
+                        CanalAtencion = "Centro de Averías Eléctricas 24/7",
+                        ColorHex = "#2563eb",
+                        Activa = true
+                    },
+                    new EntidadResponsable
+                    {
+                        Nombre = "Junta Central Electoral (JCE) — Verificación y Registro Ciudadano",
+                        Siglas = "JCE",
+                        CategoriaServicio = "Identidad / JCE",
+                        ResponsableNombre = "Enlace de Verificación e Identidad",
+                        CorreoContacto = "enlaces@jce.gob.do",
+                        TelefonoContacto = "(809) 539-5419",
+                        CanalAtencion = "Canal Institucional de Registro",
+                        ColorHex = "#8B1E1E",
+                        Activa = true
+                    },
+                    new EntidadResponsable
+                    {
+                        Nombre = "CAASD — Agua Potable y Drenaje Pluvial",
+                        Siglas = "CAASD",
+                        CategoriaServicio = "Agua y Drenaje",
+                        ResponsableNombre = "Brigada Hidráulica y Drenaje",
+                        CorreoContacto = "averias@caasd.gob.do",
+                        TelefonoContacto = "(809) 562-3500",
+                        CanalAtencion = "Despacho de Fugas y Alcantarillado",
+                        ColorHex = "#0891b2",
+                        Activa = true
+                    },
+                    new EntidadResponsable
+                    {
+                        Nombre = "Cuadrilla Interna Barrio Inteligente",
+                        Siglas = "STAFF",
+                        CategoriaServicio = "General",
+                        ResponsableNombre = "Coordinación Operativa Interna",
+                        CorreoContacto = "operaciones@barriointeligente.local",
+                        TelefonoContacto = "(809) 555-0190",
+                        CanalAtencion = "Inspección Directa en Terreno",
+                        ColorHex = "#111827",
+                        Activa = true
+                    }
+                };
+
+                context.EntidadesResponsables.AddRange(entidades);
+                context.SaveChanges();
+            }
+
+            if (!context.ComunicadosEquipos.Any())
+            {
+                var emisor = context.Usuarios
+                    .OrderByDescending(u => u.EsAdmin)
+                    .ThenBy(u => u.Id)
+                    .FirstOrDefault();
+
+                if (emisor == null) return;
+
+                var mopc = context.EntidadesResponsables.FirstOrDefault(e => e.Siglas == "MOPC")
+                           ?? context.EntidadesResponsables.FirstOrDefault();
+                var jce = context.EntidadesResponsables.FirstOrDefault(e => e.Siglas == "JCE")
+                          ?? context.EntidadesResponsables.FirstOrDefault(e => e.Siglas == "STAFF")
+                          ?? mopc;
+
+                if (mopc == null || jce == null) return;
+
+                var reporteBache = context.Reportes
+                    .OrderByDescending(r => r.Fecha)
+                    .FirstOrDefault(r => r.Categoria == "Bache" && r.Estado != "Resuelto")
+                    ?? context.Reportes.OrderByDescending(r => r.Fecha).FirstOrDefault();
+
+                var comunicados = new List<ComunicadoEquipo>
+                {
+                    new ComunicadoEquipo
+                    {
+                        Asunto = "Despacho prioritario: bacheo y sellado de asfalto en zona reportada",
+                        Mensaje = "Se remite incidencia ciudadana verificada para intervención de cuadrilla vial del MOPC. Favor confirmar ventana de asfalto y colocación de señalización preventiva.",
+                        Prioridad = "Alta",
+                        Estado = "En Atención",
+                        NotaRespuesta = "Enlace vial MOPC confirmó recepción del despacho; brigada asignada para inspección técnica.",
+                        FechaCreacion = DateTime.Now.AddHours(-6),
+                        FechaActualizacion = DateTime.Now.AddHours(-2),
+                        EntidadResponsableId = mopc.Id,
+                        EmisorUsuarioId = emisor.Id,
+                        AsignadoUsuarioId = emisor.Id,
+                        ReporteId = reporteBache?.Id
+                    },
+                    new ComunicadoEquipo
+                    {
+                        Asunto = "Coordinación JCE / Staff: protocolo de validación de identidad comunitaria",
+                        Mensaje = "Se establece canal directo entre la Junta Central Electoral (JCE) y la cuadrilla interna de Barrio Inteligente para verificación de enlaces vecinales y atención rápida en terreno.",
+                        Prioridad = "Normal",
+                        Estado = "Enviado",
+                        FechaCreacion = DateTime.Now.AddHours(-1),
+                        EntidadResponsableId = jce.Id,
+                        EmisorUsuarioId = emisor.Id
+                    }
+                };
+
+                context.ComunicadosEquipos.AddRange(comunicados);
+                context.SaveChanges();
+            }
         }
 
         private static string HashPassword(string password)

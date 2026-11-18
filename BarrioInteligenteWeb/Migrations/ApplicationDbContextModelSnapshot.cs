@@ -82,6 +82,69 @@ namespace BarrioInteligenteWeb.Migrations
                     b.ToTable("ComentariosLikes");
                 });
 
+            modelBuilder.Entity("BarrioInteligenteWeb.Models.ComunicadoEquipo", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int?>("AsignadoUsuarioId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Asunto")
+                        .IsRequired()
+                        .HasMaxLength(140)
+                        .HasColumnType("nvarchar(140)");
+
+                    b.Property<int>("EmisorUsuarioId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("EntidadResponsableId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Estado")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<DateTime?>("FechaActualizacion")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("FechaCreacion")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Mensaje")
+                        .IsRequired()
+                        .HasMaxLength(1500)
+                        .HasColumnType("nvarchar(1500)");
+
+                    b.Property<string>("NotaRespuesta")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<string>("Prioridad")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<int?>("ReporteId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AsignadoUsuarioId");
+
+                    b.HasIndex("EmisorUsuarioId");
+
+                    b.HasIndex("EntidadResponsableId");
+
+                    b.HasIndex("ReporteId");
+
+                    b.ToTable("ComunicadosEquipos");
+                });
+
             modelBuilder.Entity("BarrioInteligenteWeb.Models.DenunciaUsuario", b =>
                 {
                     b.Property<int>("Id")
@@ -118,6 +181,57 @@ namespace BarrioInteligenteWeb.Migrations
                     b.HasIndex("ReportadoId");
 
                     b.ToTable("DenunciasUsuarios");
+                });
+
+            modelBuilder.Entity("BarrioInteligenteWeb.Models.EntidadResponsable", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<bool>("Activa")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("CanalAtencion")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("CategoriaServicio")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("ColorHex")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("CorreoContacto")
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<string>("Nombre")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
+                    b.Property<string>("ResponsableNombre")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("Siglas")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("TelefonoContacto")
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("EntidadesResponsables");
                 });
 
             modelBuilder.Entity("BarrioInteligenteWeb.Models.HistorialEstado", b =>
@@ -175,6 +289,9 @@ namespace BarrioInteligenteWeb.Migrations
                         .IsRequired()
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
+
+                    b.Property<int>("PuntosRequeridos")
+                        .HasColumnType("int");
 
                     b.HasKey("Id");
 
@@ -279,10 +396,16 @@ namespace BarrioInteligenteWeb.Migrations
                     b.Property<DateTime>("FechaRegistro")
                         .HasColumnType("datetime2");
 
+                    b.Property<DateTime?>("FechaSuspensionHasta")
+                        .HasColumnType("datetime2");
+
                     b.Property<string>("FotoPerfil")
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("MotivoReputacion")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("MotivoSuspension")
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("NombreCompleto")
@@ -298,6 +421,10 @@ namespace BarrioInteligenteWeb.Migrations
 
                     b.Property<int>("Reputacion")
                         .HasColumnType("int");
+
+                    b.Property<string>("Rol")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
 
                     b.HasKey("Id");
 
@@ -381,6 +508,39 @@ namespace BarrioInteligenteWeb.Migrations
                     b.Navigation("Comentario");
 
                     b.Navigation("Usuario");
+                });
+
+            modelBuilder.Entity("BarrioInteligenteWeb.Models.ComunicadoEquipo", b =>
+                {
+                    b.HasOne("BarrioInteligenteWeb.Models.Usuario", "AsignadoUsuario")
+                        .WithMany()
+                        .HasForeignKey("AsignadoUsuarioId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("BarrioInteligenteWeb.Models.Usuario", "EmisorUsuario")
+                        .WithMany()
+                        .HasForeignKey("EmisorUsuarioId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("BarrioInteligenteWeb.Models.EntidadResponsable", "EntidadResponsable")
+                        .WithMany("Comunicados")
+                        .HasForeignKey("EntidadResponsableId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("BarrioInteligenteWeb.Models.Reporte", "Reporte")
+                        .WithMany()
+                        .HasForeignKey("ReporteId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("AsignadoUsuario");
+
+                    b.Navigation("EmisorUsuario");
+
+                    b.Navigation("EntidadResponsable");
+
+                    b.Navigation("Reporte");
                 });
 
             modelBuilder.Entity("BarrioInteligenteWeb.Models.DenunciaUsuario", b =>
@@ -469,6 +629,11 @@ namespace BarrioInteligenteWeb.Migrations
             modelBuilder.Entity("BarrioInteligenteWeb.Models.Comentario", b =>
                 {
                     b.Navigation("Likes");
+                });
+
+            modelBuilder.Entity("BarrioInteligenteWeb.Models.EntidadResponsable", b =>
+                {
+                    b.Navigation("Comunicados");
                 });
 
             modelBuilder.Entity("BarrioInteligenteWeb.Models.Reporte", b =>

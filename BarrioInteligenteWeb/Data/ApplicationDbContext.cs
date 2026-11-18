@@ -17,6 +17,8 @@ namespace BarrioInteligenteWeb.Data
         public DbSet<Validacion> Validaciones { get; set; }
         public DbSet<DenunciaUsuario> DenunciasUsuarios { get; set; }
         public DbSet<Insignia> Insignias { get; set; }
+        public DbSet<EntidadResponsable> EntidadesResponsables { get; set; }
+        public DbSet<ComunicadoEquipo> ComunicadosEquipos { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -72,6 +74,31 @@ namespace BarrioInteligenteWeb.Data
                 .HasOne(d => d.Reportado)
                 .WithMany()
                 .HasForeignKey(d => d.ReportadoId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // ── Equipos y Coordinación Institucional ──
+            modelBuilder.Entity<ComunicadoEquipo>()
+                .HasOne(c => c.EntidadResponsable)
+                .WithMany(e => e.Comunicados)
+                .HasForeignKey(c => c.EntidadResponsableId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<ComunicadoEquipo>()
+                .HasOne(c => c.EmisorUsuario)
+                .WithMany()
+                .HasForeignKey(c => c.EmisorUsuarioId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<ComunicadoEquipo>()
+                .HasOne(c => c.AsignadoUsuario)
+                .WithMany()
+                .HasForeignKey(c => c.AsignadoUsuarioId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<ComunicadoEquipo>()
+                .HasOne(c => c.Reporte)
+                .WithMany()
+                .HasForeignKey(c => c.ReporteId)
                 .OnDelete(DeleteBehavior.Restrict);
 
             // ── Soft Delete (Filtros Globales) ──
