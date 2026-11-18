@@ -1,5 +1,6 @@
+<a id="top"></a>
 <div align="center">
-  <img src="BarrioInteligenteWeb/wwwroot/images/LogoBI.png" alt="Barrio Inteligente" width="320" />
+  <img src="docs/screenshots/logo-banner.png" alt="Barrio Inteligente" width="340" />
 
   <p>
     <strong>Plataforma colaborativa de reportaje urbano, inteligencia territorial y coordinación comunitaria para la República Dominicana.</strong>
@@ -220,4 +221,4 @@ CREATE TABLE Reportes (
 | **Christopher Alvarez Bermudez** | `A00116310` |
 | **Elian Emmanuel De Jesús Guzmán** | `A00115958` |
 
-<p align="right">(<a href="#barrio-inteligente">volver arriba</a>)</p>
+<p align="right">(<a href="#top">volver arriba</a>)</p>
