@@ -554,17 +554,19 @@ namespace BarrioInteligenteWeb.Services
         }
 
         /// <summary>
-        /// Calcula el NivelReputacion basado en los puntos actuales (puntos <= 0 pasan a Crítica).
+        /// Calcula el <see cref="NivelReputacion"/> según los puntos actuales del ciudadano.
+        /// Escala: &gt; 80 Excelente, 41..80 Buena, 0..40 Regular (nivel estándar/neutral),
+        /// -1..-49 Mala, &le; -50 Crítica.
         /// </summary>
         public static NivelReputacion CalcularNivel(int puntos)
         {
             return puntos switch
             {
-                > 80 => NivelReputacion.Excelente,
-                > 60 => NivelReputacion.Buena,
-                > 40 => NivelReputacion.Regular,
-                > 0  => NivelReputacion.Mala,
-                _    => NivelReputacion.Critica
+                > 80  => NivelReputacion.Excelente,
+                > 40  => NivelReputacion.Buena,
+                >= 0  => NivelReputacion.Regular,
+                > -50 => NivelReputacion.Mala,
+                _     => NivelReputacion.Critica
             };
         }
     }

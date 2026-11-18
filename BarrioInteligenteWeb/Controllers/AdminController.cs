@@ -100,13 +100,18 @@ namespace BarrioInteligenteWeb.Controllers
             if (usuario.PuntosReputacion <= -50)
             {
                 usuario.PuntosReputacion = 0;
-                usuario.Reputacion = NivelReputacion.Critica;
+                usuario.Reputacion = ProfanityService.CalcularNivel(usuario.PuntosReputacion);
                 usuario.MotivoReputacion = "Suspensión levantada manualmente por Administrador.";
             }
             await _reputacionService.SincronizarInsigniasAsync(usuarioId);
             await _context.SaveChangesAsync();
 
-            return Json(new { success = true, message = $"Suspensión levantada para {usuario.NombreCompleto}." });
+            return Json(new {
+                success = true,
+                message = $"Suspensión levantada para {usuario.NombreCompleto}.",
+                puntos = usuario.PuntosReputacion,
+                newReputation = usuario.Reputacion.ToString()
+            });
         }
 
         [HttpPost]
@@ -121,7 +126,7 @@ namespace BarrioInteligenteWeb.Controllers
                 await _reputacionService.SincronizarInsigniasAsync(id);
             }
 
-            return Json(new { success = true, message = $"Se sincronizaron automáticamente las insignias de {usuarios.Count} ciudadanos según sus puntos." });
+            return Json(new { success = true, message = $"Se sincronizaron automáticamente las insignias y niveles de reputación de {usuarios.Count} ciudadanos según sus puntos." });
         }
 
         [HttpPost]

@@ -77,8 +77,10 @@ namespace BarrioInteligenteWeb.Services
 
         private async Task SincronizarInsigniasInternoAsync(Usuario usuario)
         {
-            // Regla estricta:
-            // "y si tengo -xx puntos se me quitan las insignias y no se me pone nada sino entro a critico"
+            usuario.Reputacion = ProfanityService.CalcularNivel(usuario.PuntosReputacion);
+
+            // Con 0 pts o menos se revocan las insignias; el nivel lo determina CalcularNivel
+            // (0..40 = Regular, -1..-49 = Mala, <= -50 = Crítica).
             if (usuario.PuntosReputacion <= 0)
             {
                 if (usuario.Insignias.Any())
@@ -88,7 +90,6 @@ namespace BarrioInteligenteWeb.Services
                         usuario.Id, usuario.PuntosReputacion);
                     usuario.Insignias.Clear();
                 }
-                usuario.Reputacion = NivelReputacion.Critica;
                 return;
             }
 

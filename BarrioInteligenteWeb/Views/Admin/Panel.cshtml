@@ -342,8 +342,20 @@
                                     </span>
                                 </td>
                                 <td>
+                                    @{
+                                        var repReal = BarrioInteligenteWeb.Services.ProfanityService.CalcularNivel(u.PuntosReputacion);
+                                        var repStyle = repReal switch
+                                        {
+                                            BarrioInteligenteWeb.Models.NivelReputacion.Excelente => "background:#ecfdf5;color:#059669;border:1px solid #6ee7b7;",
+                                            BarrioInteligenteWeb.Models.NivelReputacion.Buena     => "background:#eff6ff;color:#2563eb;border:1px solid #93c5fd;",
+                                            BarrioInteligenteWeb.Models.NivelReputacion.Regular   => "background:#fffbeb;color:#d97706;border:1px solid #fcd34d;",
+                                            BarrioInteligenteWeb.Models.NivelReputacion.Mala      => "background:#fff1f2;color:#e11d48;border:1px solid #fda4af;",
+                                            BarrioInteligenteWeb.Models.NivelReputacion.Critica   => "background:#fef2f2;color:#dc2626;border:1px solid #fca5a5;",
+                                            _ => "background:#f1f5f9;color:#475569;border:1px solid #cbd5e1;"
+                                        };
+                                    }
                                     <div><strong id="rep-puntos-@u.Id">@u.PuntosReputacion pts</strong></div>
-                                    <span class="badge" id="rep-badge-@u.Id" style="background:#f1f5f9;color:#475569;border:1px solid #cbd5e1;font-size:11px;">@u.Reputacion.ToString()</span>
+                                    <span class="badge" id="rep-badge-@u.Id" style="@(repStyle)font-size:11px;">@repReal.ToString()</span>
                                 </td>
                                 <td id="insignias-@u.Id">
                                     @if (u.Insignias.Any())
@@ -639,6 +651,24 @@
         return 'badge-rol-ciudadano';
     }
 
+    const REP_BADGE_STYLES = {
+        'Excelente': 'background:#ecfdf5;color:#059669;border:1px solid #6ee7b7;font-size:11px;',
+        'Buena':     'background:#eff6ff;color:#2563eb;border:1px solid #93c5fd;font-size:11px;',
+        'Regular':   'background:#fffbeb;color:#d97706;border:1px solid #fcd34d;font-size:11px;',
+        'Mala':      'background:#fff1f2;color:#e11d48;border:1px solid #fda4af;font-size:11px;',
+        'Critica':   'background:#fef2f2;color:#dc2626;border:1px solid #fca5a5;font-size:11px;'
+    };
+
+    function actualizarBadgeReputacionUI(userId, nivel) {
+        const badgeRep = document.getElementById(`rep-badge-${userId}`);
+        if (badgeRep && nivel) {
+            badgeRep.textContent = nivel;
+            if (REP_BADGE_STYLES[nivel]) {
+                badgeRep.style.cssText = REP_BADGE_STYLES[nivel];
+            }
+        }
+    }
+
     // Ajustar Reputación vía AJAX
     async function guardarReputacion() {
         if (!currentUserId) return;
@@ -665,10 +695,7 @@
                 const repElem = document.getElementById(`rep-puntos-${currentUserId}`);
                 if (repElem) repElem.textContent = data.puntos + ' pts';
 
-                const badgeRep = document.getElementById(`rep-badge-${currentUserId}`);
-                if (badgeRep && data.newReputation) {
-                    badgeRep.textContent = data.newReputation;
-                }
+                actualizarBadgeReputacionUI(currentUserId, data.newReputation);
 
                 // Sincronizar insignias automáticas en la tabla y en el modal
                 if (data.insignias !== undefined) {
@@ -754,9 +781,10 @@
                 document.getElementById('mSuspensionAlert').style.setProperty('display', 'none', 'important');
                 const existingBadgeSusp = document.getElementById(`badge-susp-${currentUserId}`);
                 if (existingBadgeSusp) existingBadgeSusp.remove();
-                document.getElementById('mPuntos').value = 0;
+                const puntosActuales = data.puntos ?? 0;
+                document.getElementById('mPuntos').value = puntosActuales;
                 const repElem = document.getElementById(`rep-puntos-${currentUserId}`);
-                if (repElem) repElem.textContent = '0 pts';
+                if (repElem) repElem.textContent = `${puntosActuales} pts`;
 
                 const celdaInsignias = document.getElementById(`insignias-${currentUserId}`);
                 if (celdaInsignias) {
@@ -767,8 +795,7 @@
                     btn.classList.add('btn-outline-dark');
                 });
 
-                const badgeRep = document.getElementById(`rep-badge-${currentUserId}`);
-                if (badgeRep) badgeRep.textContent = 'Critica';
+                actualizarBadgeReputacionUI(currentUserId, data.newReputation || 'Regular');
 
                 const fb = document.getElementById('puntosFeedback');
                 fb.style.display = 'block';

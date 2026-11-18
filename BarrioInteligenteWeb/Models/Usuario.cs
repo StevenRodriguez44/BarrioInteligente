@@ -42,7 +42,7 @@ namespace BarrioInteligenteWeb.Models
 
         public int PuntosReputacion { get; set; } = 100;
 
-        public NivelReputacion Reputacion { get; set; } = NivelReputacion.Buena;
+        public NivelReputacion Reputacion { get; set; } = NivelReputacion.Excelente;
 
         public string? MotivoReputacion { get; set; }
 

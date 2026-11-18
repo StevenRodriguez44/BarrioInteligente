@@ -390,11 +390,11 @@
 
         @{
             /* Helpers de reputación */
-            var rep = Model.Reputacion;
+            var rep = BarrioInteligenteWeb.Services.ProfanityService.CalcularNivel(Model.PuntosReputacion);
             string repStatusText = rep switch {
                 BarrioInteligenteWeb.Models.NivelReputacion.Excelente => "Tu cuenta tiene una reputación excelente",
                 BarrioInteligenteWeb.Models.NivelReputacion.Buena     => "Tu cuenta tiene buena reputación",
-                BarrioInteligenteWeb.Models.NivelReputacion.Regular   => "Tu reputación es regular",
+                BarrioInteligenteWeb.Models.NivelReputacion.Regular   => "Tu reputación es regular (nivel estándar)",
                 BarrioInteligenteWeb.Models.NivelReputacion.Mala      => "Tu reputación necesita mejorar",
                 BarrioInteligenteWeb.Models.NivelReputacion.Critica   => "Tu cuenta está en estado crítico",
                 _ => "Estado de reputación desconocido"
@@ -427,18 +427,26 @@
                 BarrioInteligenteWeb.Models.NivelReputacion.Critica   => "#fee2e2",
                 _ => "#f3f4f6"
             };
+            string repMotivoDefault = rep switch {
+                BarrioInteligenteWeb.Models.NivelReputacion.Excelente => "Gracias por respetar las normas comunitarias y contribuir activamente al bienestar del barrio.",
+                BarrioInteligenteWeb.Models.NivelReputacion.Buena     => "Gracias por respetar las normas comunitarias y contribuir al bienestar del barrio.",
+                BarrioInteligenteWeb.Models.NivelReputacion.Regular   => "Tu cuenta mantiene un nivel estándar sin sanciones. Participa con reportes válidos para seguir sumando puntos.",
+                BarrioInteligenteWeb.Models.NivelReputacion.Mala      => "Tu cuenta requiere atención. Respeta las normas de convivencia para mejorar tu puntuación.",
+                BarrioInteligenteWeb.Models.NivelReputacion.Critica   => "Tu cuenta presenta sanciones acumuladas. Contribuye positivamente para recuperar tu nivel.",
+                _ => "Gracias por respetar las normas comunitarias y contribuir al bienestar del barrio."
+            };
             string repMotivo = string.IsNullOrWhiteSpace(Model.MotivoReputacion)
-                ? "Gracias por respetar las normas comunitarias y contribuir al bienestar del barrio."
+                ? repMotivoDefault
                 : Model.MotivoReputacion;
             int repIdx = (int)rep; /* 0=Excelente … 4=Critica */
             /* Datos de cada paso del stepper */
             var steps = new[]
             {
-                new { Label = "Excelente", Cls = "rep-excelente",  LineCls = "rep-line-excelente" },
-                new { Label = "Buena",     Cls = "rep-buena",      LineCls = "rep-line-buena"     },
-                new { Label = "Regular",   Cls = "rep-regular",    LineCls = "rep-line-regular"   },
-                new { Label = "Mala",      Cls = "rep-mala",       LineCls = "rep-line-mala"      },
-                new { Label = "Crítica",   Cls = "rep-critica",    LineCls = "rep-line-inactive"  }
+                new { Label = "Excelente", Cls = "rep-excelente",  LineCls = "rep-line-excelente", Hex = "#16a34a" },
+                new { Label = "Buena",     Cls = "rep-buena",      LineCls = "rep-line-buena",     Hex = "#22c55e" },
+                new { Label = "Regular",   Cls = "rep-regular",    LineCls = "rep-line-regular",   Hex = "#eab308" },
+                new { Label = "Mala",      Cls = "rep-mala",       LineCls = "rep-line-mala",      Hex = "#f97316" },
+                new { Label = "Crítica",   Cls = "rep-critica",    LineCls = "rep-line-inactive",  Hex = "#dc2626" }
             };
         }
 
@@ -500,6 +508,7 @@
                     </svg>
                 </div>
                 <p class="rep-title">Reputación Ciudadana</p>
+                <span style="margin-left:auto;font-size:12px;font-weight:700;color:@repColor;background:@repIconBg;padding:3px 10px;border-radius:999px;">@Model.PuntosReputacion pts</span>
             </div>
             <p class="rep-status" style="color: @repColor;">@repStatusText</p>
             <p class="rep-motivo">@repMotivo</p>
@@ -511,10 +520,9 @@
                     bool isActive = (i == repIdx);
                     bool isPast   = (i < repIdx);
                     string dotCls = steps[i].Cls + (isActive ? " active" : "");
-                    string dotBg  = isActive ? "#fff" : (isPast ? "currentColor" : "#fff");
 
                     <div class="rep-step">
-                        <div class="rep-dot @dotCls" style="@(isPast ? $"background:{steps[i].Cls.Replace("rep-","")};" : "")">       
+                        <div class="rep-dot @dotCls" style="@(isPast ? $"background:{steps[i].Hex};" : "")">       
                             @if (isActive)
                             {
                                 <!-- Check activo -->
@@ -623,8 +631,8 @@
         'regular': {
             icon: '💬',
             iconBg: '#fef9c3',
-            title: 'Reputación Regular',
-            desc: 'Tu reputación es regular. Participa más activamente — reporta problemas, valida reportes de otros y mantén un comportamiento positivo.'
+            title: 'Reputación Regular (Nivel Estándar)',
+            desc: 'Tu reputación está en el nivel estándar y tu cuenta se encuentra en buen estado. Reporta incidencias y valida aportes de vecinos para seguir sumando puntos.'
         },
         'mala': {
             icon: '⚠️',
